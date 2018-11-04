@@ -131,22 +131,6 @@ NSFastLED::CRGB leds[NUM_LEDS];
 NSFastLED::CRGB ledsA[NUM_LEDS];
 NSFastLED::CRGB ledsB[NUM_LEDS];
 
-/*
-TODO WTF FUCK WHY DOES HAVING `struct Deck;` in here make this compile, and without
-everything is broken with 
-src/scarf.cpp:31:39: error: variable or field 'pattern_slow_pulse_with_sparkles' declared void
- void pattern_slow_pulse_with_sparkles(Deck* s);
-                                       ^
-src/scarf.cpp:31:39: error: 'Deck' was not declared in this scope
-src/scarf.cpp:31:45: error: 's' was not declared in this scope
- void pattern_slow_pulse_with_sparkles(Deck* s);
-                                             ^
-src/scarf.cpp:32:34: error: variable or field 'pattern_phase_shift_palette' declared void
- void pattern_phase_shift_palette(Deck* s);
-                                  ^
-src/scarf.cpp:32:34: error: 'Deck' was not declared in this scope
-src/scarf.cpp:32:40: error: 's' was not declared in this scope
-*/
 struct Deck;
 struct Mixer;
 
@@ -156,7 +140,7 @@ void pattern_white_test(Deck* s) {
   }
 }
 
-void pattern_slow_pulse_with_sparkles(Deck* s) {
+void pattern_slow_pulse(Deck* s) {
   // pick a color, and pulse it 
   uint8_t cBrightness = NSFastLED::beatsin8(20, 140, 255);
   uint8_t cHue = NSFastLED::beatsin8(4, 0, 255);
@@ -164,11 +148,7 @@ void pattern_slow_pulse_with_sparkles(Deck* s) {
   NSFastLED::CRGB rgb_led;
   hsv2rgb_rainbow(hsv_led, rgb_led);
   for( int i = 0; i < NUM_LEDS; i++) {
-    //if (random(NUM_LEDS*3) == 0) {
-    //  s->leds[i] = NSFastLED::CRGB::White;
-    //} else {
-      s->leds[i] = rgb_led;
-    //}
+    s->leds[i] = rgb_led;
   }
 }
 
@@ -208,17 +188,13 @@ void  pattern_plasma(Deck* s) {
 }
 
 // cycle a rainbow, varying how quickly it rolls around the board
-void pattern_rainbow_waves_with_sparkles(Deck* s) {
+void pattern_rainbow_waves(Deck* s) {
   for(int i = 0; i < NUM_LEDS; ++i) {
-    //if (random(NUM_LEDS*3) == 0) {
-    //  s->leds[i] = NSFastLED::CRGB::White;
-    //} else {
-      uint8_t h = (t_now/12+i)%256;
-      NSFastLED::CHSV hsv_led = NSFastLED::CHSV(h, 255, 255);
-      NSFastLED::CRGB rgb_led;
-      hsv2rgb_rainbow(hsv_led, rgb_led);
-      s->leds[i] = rgb_led;
-    //}
+    uint8_t h = (t_now/12+i)%256;
+    NSFastLED::CHSV hsv_led = NSFastLED::CHSV(h, 255, 255);
+    NSFastLED::CRGB rgb_led;
+    hsv2rgb_rainbow(hsv_led, rgb_led);
+    s->leds[i] = rgb_led;
   }
 }
 
@@ -228,14 +204,10 @@ void pattern_clear(Deck* s) {
   }
 }
 
-void pattern_disorient_palette_sparkles(Deck* s) {
+void pattern_disorient_palette(Deck* s) {
   uint8_t b = NSFastLED::beatsin8(4, 0, 255);
   for( int i = 0; i < NUM_LEDS; i++) {
-    //if (random(NUM_LEDS*4) == 0) {
-    //  s->leds[i] = NSFastLED::CRGB::White;
-    //} else {
-      s->leds[i] = ColorFromPalette((NSFastLED::CRGBPalette16)Disorient_gp, s->animationIndex + i + b, MAX_BRIGHTNESS, currentBlending);
-    //}
+    s->leds[i] = ColorFromPalette((NSFastLED::CRGBPalette16)Disorient_gp, s->animationIndex + i + b, MAX_BRIGHTNESS, currentBlending);
   }
   // slow down progression by 1/3
   if (t_now%3 == 0) {
@@ -311,13 +283,13 @@ void pattern_palette_waves(Deck* s) {
 #define NUM_PATTERNS sizeof(patternBank) / sizeof(DrawFunction)
 const DrawFunction patternBank[] = {
   &pattern_palette_waves,
-  &pattern_slow_pulse_with_sparkles,
+  &pattern_slow_pulse,
   &pattern_phase_shift_palette,
   &pattern_plasma,
   &pattern_plasma,
   &pattern_from_palette,
-  &pattern_disorient_palette_sparkles,
-  &pattern_rainbow_waves_with_sparkles,
+  &pattern_disorient_palette,
+  &pattern_rainbow_waves,
 };
 
 #define NUM_EFFECTS sizeof(effectBank) / sizeof(EffectFunction)
@@ -339,7 +311,6 @@ void stepFxParams(Mixer* m) {
   m->fxDryWet = NSFastLED::beatsin8(12, 0, 255);
   m->fxParam1 = NSFastLED::beatsin8(12, 0, 255, 0, m->fxDryWet );
   m->fxParam2 = NSFastLED::beatsin8(19, 0, 255, 0, 0);
-  //Serial.printlnf("dw=%d p1=%d p2=%d", m->fxDryWet, m->fxParam1, m->fxParam2);
 }
 
 void randomEffect(Mixer* m) {
