@@ -1,0 +1,23 @@
+{
+  "name": "led-media-console-backlight",
+  "version": "1.0.0",
+  "description": "arduino code for media console backlighting",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/byxorna/led-media-console-backlight.git"
+  },
+  "author": "Gabe Conradi <gabe.conradi@gmail.com>",
+  "license": "APL2.0",
+  "bugs": {
+    "url": "https://github.com/byxorna/led-media-console-backlight/issues"
+  },
+  "homepage": "https://github.com/byxorna/led-media-console-backlight#readme",
+  "dependencies": {
+    "global": "^4.3.2",
+    "particle-cli": "^1.25.0"
+  }
+}
