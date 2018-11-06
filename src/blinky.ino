@@ -54,10 +54,10 @@ typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
 typedef void (*MixerFunction)(Deck*, Deck*, Output*);
 
-uint8_t BRIGHTNESS_VALUES[] = {255, 180, 110, 80, 65, 40};
-uint8_t BRIGHTNESS_INDEX = 3;
-#define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
+uint8_t BRIGHTNESS_VALUES[] = {40, 65, 80, 110, 180, 255};
 #define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
+#define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
+uint8_t BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
 bool AUTO_PATTERN_CHANGE = true;
 
 unsigned long t_now;                // time now in each loop iteration
@@ -355,6 +355,32 @@ void mixer_crossfade_blend(Mixer* mixer, Deck* a, Deck* b, Output* out) {
   }
 }
 
+// handle particle event for "brightness"
+void changeBrightness(const char *event, const char *data) {
+  if (strcmp(data, "+")) {
+    if (BRIGHTNESS_INDEX < BRIGHTNESS_COUNT) {
+      BRIGHTNESS_INDEX++;
+    }
+  } else if (strcmp(data, "-")) {
+    if (BRIGHTNESS_INDEX > 0) {
+      BRIGHTNESS_INDEX--;
+    }
+  } else if (strcmp(data, "max")) {
+    BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
+  } else {
+    // min
+    BRIGHTNESS_INDEX = 0;
+  }
+  Serial.printlnf("set brightness to %d/255", GLOBAL_BRIGHTNESS);
+}
+
+// handle particle event for "mode"
+void changeMode(const char *event, const char *data) {
+  // TODO(gabe)
+}
+
+
+
 
 // setup() runs once, when the device is first turned on.
 void setup() {
@@ -409,6 +435,9 @@ void setup() {
     &DeckB,
     &MasterOutput,
   };
+
+  Particle.subscribe("brightness", changeBrightness, MY_DEVICES);
+  Particle.subscribe("mode", changeMode, MY_DEVICES);
 
   randomPattern(&DeckA, &DeckB);
   randomPalette(&DeckA, &DeckB);
@@ -479,12 +508,8 @@ void loop() {
   */
   if (button_state == 2) {
     // disable auto pattern changing now!
-    BRIGHTNESS_INDEX++;
+    changeBrightness("brightness", "+");
     button_state = 3;
-    if (BRIGHTNESS_INDEX >= BRIGHTNESS_COUNT){
-      BRIGHTNESS_INDEX = 0;
-    }
-    Serial.printlnf("set brightness to %d/255", GLOBAL_BRIGHTNESS);
   }
 
 
