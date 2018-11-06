@@ -42,7 +42,7 @@
 #include "effects.h"
 #endif
 
-SYSTEM_MODE(SEMI_AUTOMATIC);
+SYSTEM_MODE(AUTOMATIC);
 
 Output MasterOutput;
 Deck DeckA;
@@ -54,7 +54,7 @@ typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
 typedef void (*MixerFunction)(Deck*, Deck*, Output*);
 
-uint8_t BRIGHTNESS_VALUES[] = {40, 65, 80, 110, 180, 255};
+uint8_t BRIGHTNESS_VALUES[] = {20, 80, 160, 255};
 #define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
 #define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
 uint8_t BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
@@ -357,18 +357,17 @@ void mixer_crossfade_blend(Mixer* mixer, Deck* a, Deck* b, Output* out) {
 
 // handle particle event for "brightness"
 void changeBrightness(const char *event, const char *data) {
-  if (strcmp(data, "+")) {
-    if (BRIGHTNESS_INDEX < BRIGHTNESS_COUNT) {
+  if (strcmp(data, "+") == 0) {
+    if (BRIGHTNESS_INDEX < (BRIGHTNESS_COUNT-1)) {
       BRIGHTNESS_INDEX++;
     }
-  } else if (strcmp(data, "-")) {
+  } else if (strcmp(data, "-") == 0) {
     if (BRIGHTNESS_INDEX > 0) {
       BRIGHTNESS_INDEX--;
     }
-  } else if (strcmp(data, "max")) {
+  } else if (strcmp(data, "max") == 0) {
     BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
-  } else {
-    // min
+  } else if (strcmp(data, "min") == 0) {
     BRIGHTNESS_INDEX = 0;
   }
   Serial.printlnf("set brightness to %d/255", GLOBAL_BRIGHTNESS);
@@ -388,10 +387,6 @@ void setup() {
   t_boot = t_now;
   Serial.begin(9600);
   Serial.println("resetting");
-
-  // disable the built in LED
-  RGB.control(true);
-  RGB.brightness(0);
 
   MasterOutput = {
     leds,
