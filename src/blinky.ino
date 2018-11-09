@@ -54,10 +54,10 @@ typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
 typedef void (*MixerFunction)(Deck*, Deck*, Output*);
 
-uint8_t BRIGHTNESS_VALUES[] = {20, 80, 160, 255};
+uint8_t BRIGHTNESS_VALUES[] = {120, 20, 255};
 #define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
 #define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
-uint8_t BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
+uint8_t BRIGHTNESS_INDEX = 0;
 bool AUTO_PATTERN_CHANGE = true;
 
 unsigned long t_now;                // time now in each loop iteration
@@ -66,63 +66,6 @@ unsigned long t_boot;               // time at bootup
 /* state for controlling user-mode button for pattern changes */
 uint8_t button_state = 0;
 unsigned long button_timer = 0;
-
-#define FILL_NOISE false
-#ifdef FILL_NOISE
-static uint16_t x = NSFastLED::random16(); // x is index into pixel strip
-//static uint16_t y = NSFastLED::random16(); // y is the time variable
-static uint16_t z = NSFastLED::random16();
-// We're using the x/y dimensions to map to the x/y pixels on the matrix.  We'll
-// use the z-axis for "time".  speed determines how fast time moves forward.  Try
-// 1 for a very slow moving effect, or 60 for something that ends up looking like
-// water.
-uint16_t noisespeed = 5; // speed is set dynamically once we've started up
-// Scale determines how far apart the pixels in our noise matrix are.  Try
-// changing these values around to see how it affects the motion of the display.  The
-// higher the value of scale, the more "zoomed out" the noise iwll be.  A value
-// of 1 will be so zoomed in, you'll mostly see solid colors.
-uint16_t noisescale = 7; // scale is set dynamically once we've started up
-// This is the array that we keep our computed noise values in (only 1d)
-uint8_t noise[NUM_LEDS];
-
-// Fill the x/y array of 8-bit noise values using the inoise8 function.
-void fillnoise8() {
-  // If we're runing at a low "speed", some 8-bit artifacts become visible
-  // from frame-to-frame.  In order to reduce this, we can do some fast data-smoothing.
-  // The amount of data smoothing we're doing depends on "speed".
-  uint8_t dataSmoothing = 0;
-  if( noisespeed < 50) {
-    dataSmoothing = 200 - (noisespeed * 4);
-  }
-
-  for(int i = 0; i < NUM_LEDS; i++) {
-    int ioffset = noisescale * i;
-
-    uint8_t data = NSFastLED::inoise8(x + ioffset, z);
-
-    // The range of the inoise8 function is roughly 16-238.
-    // These two operations expand those values out to roughly 0..255
-    // You can comment them out if you want the raw noise data.
-    data = NSFastLED::qsub8(data, 16);
-    data = NSFastLED::qadd8(data, NSFastLED::scale8(data,39));
-
-    if( dataSmoothing ) {
-      uint8_t olddata = noise[i];
-      uint8_t newdata = NSFastLED::scale8( olddata, dataSmoothing) + NSFastLED::scale8( data, 256 - dataSmoothing);
-      data = newdata;
-    }
-
-    noise[i] = data;
-  }
-
-  z += noisespeed;
-
-  // apply slow drift to X and Y, just for visual variation.
-  x += noisespeed / 8;
-  //y -= noisespeed / 16;
-}
-#endif
-
 
 NSFastLED::CFastLED* gLED; // global CFastLED object
 
@@ -134,15 +77,9 @@ NSFastLED::CRGB ledsB[NUM_LEDS];
 struct Deck;
 struct Mixer;
 
-void pattern_white_test(Deck* s) {
-  for( int i = 0; i < NUM_LEDS; i++) {
-    s->leds[i] = NSFastLED::CRGB::White;
-  }
-}
-
 void pattern_slow_pulse(Deck* s) {
   // pick a color, and pulse it 
-  uint8_t cBrightness = NSFastLED::beatsin8(20, 140, 255);
+  uint8_t cBrightness = NSFastLED::beatsin8(10, 140, 255);
   uint8_t cHue = NSFastLED::beatsin8(4, 0, 255);
   NSFastLED::CHSV hsv_led = NSFastLED::CHSV(cHue, 255, cBrightness);
   NSFastLED::CRGB rgb_led;
@@ -201,28 +138,6 @@ void pattern_rainbow_waves(Deck* s) {
 void pattern_clear(Deck* s) {
   for( int i = 0; i < NUM_LEDS; i++) {
     s->leds[i] = NSFastLED::CRGB::Black;
-  }
-}
-
-void pattern_disorient_palette(Deck* s) {
-  uint8_t b = NSFastLED::beatsin8(4, 0, 255);
-  for( int i = 0; i < NUM_LEDS; i++) {
-    s->leds[i] = ColorFromPalette((NSFastLED::CRGBPalette16)Disorient_gp, s->animationIndex + i + b, MAX_BRIGHTNESS, currentBlending);
-  }
-  // slow down progression by 1/3
-  if (t_now%3 == 0) {
-    s->animationIndex = NSFastLED::addmod8(s->animationIndex, 1, 255);
-  }
-}
-
-void pattern_from_palette(Deck* s) {
-  uint8_t b = NSFastLED::beatsin8(4, 0, 255);
-  for( int i = 0; i < NUM_LEDS; i++) {
-    s->leds[i] = NSFastLED::ColorFromPalette(s->currentPalette, s->animationIndex + i + b, MAX_BRIGHTNESS, currentBlending);
-  }
-  // slow down progression by 1/3
-  if (t_now%3 == 0) {
-    s->animationIndex = NSFastLED::addmod8(s->animationIndex, 1, 255);
   }
 }
 
@@ -287,8 +202,7 @@ const DrawFunction patternBank[] = {
   &pattern_phase_shift_palette,
   &pattern_plasma,
   &pattern_plasma,
-  &pattern_from_palette,
-  &pattern_disorient_palette,
+  &pattern_rainbow_waves,
   &pattern_rainbow_waves,
 };
 
@@ -453,13 +367,6 @@ void setup() {
 
 void loop() {
   t_now = millis();
-
-#ifdef FILL_NOISE
-  if (FILL_NOISE) {
-    // fill noise array
-    fillnoise8();
-  }
-#endif
 
   // handle user interaction with reset button
   if (HAL_Core_Mode_Button_Pressed(SETUP_BUTTON_HOLD_DURATION_MS)) {
