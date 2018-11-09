@@ -23,8 +23,8 @@
 #define VJ_NUM_DECKS 2
 // switch between deck a and b with this interval
 #define VJ_DECK_SWITCH_INTERVAL_MS 15000
-#define AUTO_CHANGE_PALETTE 1
 #define SETUP_BUTTON_HOLD_DURATION_MS 800
+bool AUTO_CHANGE_PALETTE = true;
 
 #ifndef _PARTICLE_H_
 #include "Particle.h"
@@ -54,10 +54,10 @@ typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
 typedef void (*MixerFunction)(Deck*, Deck*, Output*);
 
-uint8_t BRIGHTNESS_VALUES[] = {120, 20, 255};
+uint8_t BRIGHTNESS_VALUES[] = {40, 120, 255};
 #define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
 #define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
-uint8_t BRIGHTNESS_INDEX = 0;
+uint8_t BRIGHTNESS_INDEX = 1;
 bool AUTO_PATTERN_CHANGE = true;
 
 unsigned long t_now;                // time now in each loop iteration
@@ -244,11 +244,28 @@ void randomPattern(Deck* deck, Deck* otherDeck) {
   deck->tPatternStart = t_now;
 }
 
+void usePattern(Deck* deck, uint8_t patternIndex){
+  if (patternIndex >= NUM_PATTERNS) {
+    patternIndex = 0;
+  }
+  deck->pattern = patternIndex;
+  deck->tPatternStart = t_now;
+}
+
 void randomPalette(Deck* deck, Deck* otherDeck) {
   uint8_t old = deck->palette;
   while (deck->palette == old || deck->palette == otherDeck->palette) {
     deck->palette = NSFastLED::random8(0, PALETTES_COUNT);
   }
+  deck->currentPalette = palettes[deck->palette];
+  deck->tPaletteStart = t_now;
+}
+
+void usePalette(Deck* deck, uint8_t paletteIndex){
+  if (paletteIndex >= PALETTES_COUNT) {
+    paletteIndex = 0;
+  }
+  deck->palette = paletteIndex;
   deck->currentPalette = palettes[deck->palette];
   deck->tPaletteStart = t_now;
 }
@@ -289,7 +306,19 @@ void changeBrightness(const char *event, const char *data) {
 
 // handle particle event for "mode"
 void changeMode(const char *event, const char *data) {
-  // TODO(gabe)
+  if (strcmp(data, "red") == 0 || strcmp(data, "movie") == 0){
+    AUTO_PATTERN_CHANGE = false;
+    AUTO_PATTERN_CHANGE = false;
+    usePalette(&DeckA, 6); // red_gp
+    usePalette(&DeckB, 6); // red_gp
+    usePattern(&DeckA, 2); // phase shift palette
+    usePattern(&DeckB, 2); // phase shift palette
+    changeBrightness("brightness", "min");
+  } else {
+    // go back to auto mode, rave time!
+    AUTO_PATTERN_CHANGE = true;
+    AUTO_CHANGE_PALETTE = true;
+  }
 }
 
 
