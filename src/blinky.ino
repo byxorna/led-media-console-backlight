@@ -19,7 +19,7 @@
 #define PALETTE_CHANGE_INTERVAL_MS 30000
 #define EFFECT_CHANGE_INTERVAL_MS 20000
 #define VJ_CROSSFADING_ENABLED 1
-#define VJ_CROSSFADE_DURATION_MS 6000
+#define VJ_CROSSFADE_DURATION_MS 10000
 #define VJ_NUM_DECKS 2
 // switch between deck a and b with this interval
 #define VJ_DECK_SWITCH_INTERVAL_MS 15000
@@ -198,26 +198,18 @@ void pattern_palette_waves(Deck* s) {
 #define NUM_PATTERNS sizeof(patternBank) / sizeof(DrawFunction)
 const DrawFunction patternBank[] = {
   &pattern_palette_waves,
-  &pattern_slow_pulse,
   &pattern_phase_shift_palette,
   &pattern_plasma,
-  &pattern_plasma,
-  &pattern_rainbow_waves,
   &pattern_rainbow_waves,
 };
 
 #define NUM_EFFECTS sizeof(effectBank) / sizeof(EffectFunction)
 const EffectFunction effectBank[] = {
   NULL,
+  &effect_reverse,
   NULL,
+  &effect_mirror,
   NULL,
-  NULL,
-  //&effect_sparkles,
-  //NULL,
-  //&effect_random_decay,
-  //NULL,
-  //&effect_wave_decay,
-  //NULL,
 };
 
 // change dw/p1/p2 on some period
