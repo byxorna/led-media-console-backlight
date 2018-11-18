@@ -475,21 +475,6 @@ void loop() {
     }
   }
 
-  if (!mainMixer.crossfadeInProgress) {
-    if (DeckA.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
-      if (mainMixer.crossfadePosition == 1.0) {
-        randomEffect(&DeckA);
-        Serial.printlnf("deckA.effect=%d (%p)", DeckA.fxEffectIndex, effectBank[DeckA.fxEffectIndex]);
-      }
-    }
-    if (DeckB.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
-      if (mainMixer.crossfadePosition == 0.0) {
-        randomEffect(&DeckB);
-        Serial.printlnf("deckB.effect=%d (%p)", DeckB.fxEffectIndex, effectBank[DeckB.fxEffectIndex]);
-      }
-    }
-  }
-  //stepFxParams(&mainMixer);
 
 
   // fill in patterns on both decks! we will crossfade master output later
@@ -515,14 +500,14 @@ void loop() {
 
       // is it time to change decks?
       // we are cut over to deck B, break this loop
-      if (mainMixer.crossfadePosition > 1.0) {
+      if (mainMixer.crossfadePosition >= 1.0) {
         mainMixer.crossfadePosition = 1.0;
         mainMixer.crossfadeDirection = -1; // 1->0
         mainMixer.crossfadeInProgress = 0;
         Serial.printf("finished fading to B\n");
       }
       // we are cut over to deck B
-      if (mainMixer.crossfadePosition < 0.0) {
+      if (mainMixer.crossfadePosition <= 0.0) {
         mainMixer.crossfadePosition = 0.0;
         mainMixer.crossfadeDirection = 1;  // 0->1
         mainMixer.crossfadeInProgress = 0;
@@ -530,6 +515,7 @@ void loop() {
       }
     }
   }
+
   // perform prefader effects
   if (effectBank[DeckA.fxEffectIndex] != NULL) {
     effectBank[DeckA.fxEffectIndex](&DeckA, mainMixer.fxDryWet, mainMixer.fxParam1, mainMixer.fxParam2);
@@ -544,6 +530,24 @@ void loop() {
   if (effectBank[mainMixer.fxEffectIndex] != NULL) {
     effectBank[mainMixer.fxEffectIndex](&MasterOutput, mainMixer.fxDryWet, mainMixer.fxParam1, mainMixer.fxParam2);
   }
+
+  // pick new effects if we should
+  if (!mainMixer.crossfadeInProgress) {
+    if (DeckA.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
+      if (mainMixer.crossfadePosition == 1.0) {
+        randomEffect(&DeckA);
+        Serial.printlnf("deckA.effect=%d (%p)", DeckA.fxEffectIndex, effectBank[DeckA.fxEffectIndex]);
+      }
+    }
+    if (DeckB.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
+      if (mainMixer.crossfadePosition == 0.0) {
+        randomEffect(&DeckB);
+        Serial.printlnf("deckB.effect=%d (%p)", DeckB.fxEffectIndex, effectBank[DeckB.fxEffectIndex]);
+      }
+    }
+  }
+  //stepFxParams(&mainMixer);
+
 
   gLED->setBrightness(GLOBAL_BRIGHTNESS);
   gLED->show();
