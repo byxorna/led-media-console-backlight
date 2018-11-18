@@ -76,20 +76,18 @@ extern const NSFastLED::TProgmemRGBGradientPalette_byte rainbow_gp [] {
   255, 255,  0,  0};
 
 
-// Gradient palette "red_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/ds9/tn/red.png.index.html
+// Gradient palette "red_g0_4_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/go2/webtwo/tn/red-g0-4.png.index.html
 // converted for FastLED with gammas (2.6, 2.2, 2.5)
 // Size: 8 bytes of program space.
 
-extern const NSFastLED::TProgmemRGBGradientPalette_byte red_gp [] {
-    0,   0,  0,  0,
-  255, 255,  0,  0};
-
-
+extern const NSFastLED::TProgmemRGBGradientPalette_byte red_g0_4_gp [] {
+    0, 121,  4,  3,
+  255, 210,  1,  1};
 
 // for effects that are palette based
 NSFastLED::CRGBPalette16 palettes[] = {
-  red_gp,
+  red_g0_4_gp,
   bhw1_purplered_gp,
   alarm_p1_0_3_gp,
   rainbow_gp,

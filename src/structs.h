@@ -18,11 +18,15 @@ typedef struct Deck {
   unsigned long tPatternStart;  // time last pattern changed
   unsigned long tPaletteStart;  // time last palette changed
   NSFastLED::CRGB* leds;
+  uint8_t fxEffectIndex;    // which effect in effectBank is active (prefader)
+  unsigned long tFxEffectStart; // when the last effect was changed
 } Deck;
 
+/*
 typedef struct Output {
   NSFastLED::CRGB* leds;
 } Output;
+*/
 
 typedef struct Mixer {
   float crossfadePosition;
@@ -36,7 +40,7 @@ typedef struct Mixer {
   unsigned long tFxEffectStart; // when the last effect was changed
   Deck* a;
   Deck* b;
-  Output* out;
+  Deck* out;
 } Mixer;
 
 #endif

@@ -46,7 +46,7 @@ bool AUTO_CHANGE_PALETTE = true;
 
 SYSTEM_MODE(AUTOMATIC);
 
-Output MasterOutput;
+Deck MasterOutput;
 Deck DeckA;
 Deck DeckB;
 Deck* DeckAll[] = {&DeckA, &DeckB};
@@ -54,7 +54,7 @@ Mixer mainMixer;
 
 typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
-typedef void (*MixerFunction)(Deck*, Deck*, Output*);
+typedef void (*MixerFunction)(Deck*, Deck*, Deck*);
 
 uint8_t BRIGHTNESS_VALUES[] = {40, 120, 255};
 #define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
@@ -193,12 +193,24 @@ const EffectFunction effectBank[] = {
 };
 
 // change dw/p1/p2 on some period
+/*
 void stepFxParams(Mixer* m) {
   m->fxDryWet = NSFastLED::beatsin8(12, 0, 255);
   m->fxParam1 = NSFastLED::beatsin8(12, 0, 255, 0, m->fxDryWet );
   m->fxParam2 = NSFastLED::beatsin8(19, 0, 255, 0, 0);
 }
+*/
 
+void randomEffect(Deck* d) {
+  uint8_t old = d->fxEffectIndex;
+  while (d->fxEffectIndex == old) {
+    // pick a new effect that isnt the old effect index
+    d->fxEffectIndex = NSFastLED::random8(0, NUM_EFFECTS);
+  }
+  d->tFxEffectStart = t_now;
+}
+
+/*
 void randomEffect(Mixer* m) {
   uint8_t old = m->fxEffectIndex;
   while (m->fxEffectIndex == old) {
@@ -207,6 +219,7 @@ void randomEffect(Mixer* m) {
   }
   m->tFxEffectStart = t_now;
 }
+*/
 
 void randomPattern(Deck* deck, Deck* otherDeck) {
   uint8_t old = deck->pattern;
@@ -242,7 +255,7 @@ void usePalette(Deck* deck, uint8_t paletteIndex){
   deck->tPaletteStart = t_now;
 }
 
-void mixer_crossfade_blend(Mixer* mixer, Deck* a, Deck* b, Output* out) {
+void mixer_crossfade_blend(Mixer* mixer, Deck* a, Deck* b, Deck* out) {
   for (int i = 0; i < NUM_LEDS; ++i) {
     if (VJ_CROSSFADING_ENABLED) {
       // NSFastLED::fract8(255*crossfadePosition));
@@ -304,7 +317,17 @@ void setup() {
   Serial.println("resetting");
 
   MasterOutput = {
+    1,
+    0.0,
+    0,
+    0,
+    0,
+    palettes[0],
+    t_now,
+    t_now,
     leds,
+    0,  // fx effect index in effectBank
+    t_now, // time fx was changed
   };
 
   DeckA = {
@@ -317,6 +340,8 @@ void setup() {
     t_now,
     t_now,
     ledsA,
+    0,  // fx effect index in effectBank
+    t_now, // time fx was changed
   };
 
   DeckB = {
@@ -329,6 +354,8 @@ void setup() {
     t_now,
     t_now,
     ledsB,
+    0,  // fx effect index in effectBank
+    t_now, // time fx was changed
   };
 
   mainMixer = {
@@ -353,7 +380,8 @@ void setup() {
   randomPalette(&DeckA, &DeckB);
   randomPattern(&DeckB, &DeckA);
   randomPalette(&DeckB, &DeckA);
-  randomEffect(&mainMixer);
+  randomEffect(&DeckA);
+  randomEffect(&DeckB);
 
   // led controller, data pin, clock pin, RGB type (RGB is already defined in particle)
   gLED = new NSFastLED::CFastLED();
@@ -448,12 +476,20 @@ void loop() {
   }
 
   if (!mainMixer.crossfadeInProgress) {
-    if (mainMixer.fxDryWet == 0 && mainMixer.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
-      randomEffect(&mainMixer);
-      Serial.printlnf("mixer.effect=%d (%p)", mainMixer.fxEffectIndex, effectBank[mainMixer.fxEffectIndex]);
+    if (DeckA.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
+      if (mainMixer.crossfadePosition == 1.0) {
+        randomEffect(&DeckA);
+        Serial.printlnf("deckA.effect=%d (%p)", DeckA.fxEffectIndex, effectBank[DeckA.fxEffectIndex]);
+      }
+    }
+    if (DeckB.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
+      if (mainMixer.crossfadePosition == 0.0) {
+        randomEffect(&DeckB);
+        Serial.printlnf("deckB.effect=%d (%p)", DeckB.fxEffectIndex, effectBank[DeckB.fxEffectIndex]);
+      }
     }
   }
-  stepFxParams(&mainMixer);
+  //stepFxParams(&mainMixer);
 
 
   // fill in patterns on both decks! we will crossfade master output later
@@ -493,6 +529,13 @@ void loop() {
         Serial.printf("finished fading to A\n");
       }
     }
+  }
+  // perform prefader effects
+  if (effectBank[DeckA.fxEffectIndex] != NULL) {
+    effectBank[DeckA.fxEffectIndex](&DeckA, mainMixer.fxDryWet, mainMixer.fxParam1, mainMixer.fxParam2);
+  }
+  if (effectBank[DeckB.fxEffectIndex] != NULL) {
+    effectBank[DeckB.fxEffectIndex](&DeckA, mainMixer.fxDryWet, mainMixer.fxParam1, mainMixer.fxParam2);
   }
 
   // perform crossfading

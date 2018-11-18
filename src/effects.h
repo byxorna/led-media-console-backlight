@@ -11,9 +11,9 @@
 #include "structs.h"
 #endif
 
-typedef void (*EffectFunction)(Output*,uint8_t,uint8_t,uint8_t);
+typedef void (*EffectFunction)(Deck*,uint8_t,uint8_t,uint8_t);
 
-void effect_reverse(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
+void effect_reverse(Deck* s, uint8_t dw, uint8_t p1, uint8_t p2) {
   NSFastLED::CRGB flex = NSFastLED::CRGB::Black;
   for(int i = 0; i < NUM_LEDS/2; ++i) {
     flex = s->leds[i];
@@ -22,13 +22,13 @@ void effect_reverse(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
   }
 }
 
-void effect_mirror(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
+void effect_mirror(Deck* s, uint8_t dw, uint8_t p1, uint8_t p2) {
   for(int i = 0; i < NUM_LEDS/2; ++i) {
     s->leds[i] = s->leds[NUM_LEDS-i-1];
   }
 }
 
-void effect_reverse_mirror(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
+void effect_reverse_mirror(Deck* s, uint8_t dw, uint8_t p1, uint8_t p2) {
   NSFastLED::CRGB flex = NSFastLED::CRGB::Black;
   for(int i = 0; i < NUM_LEDS/2; ++i) {
     flex = s->leds[NUM_LEDS/2 - 1 - i];
