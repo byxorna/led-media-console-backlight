@@ -5,10 +5,12 @@
 * Date: idklol
 */
 
+// flickers sometimes. effect changes?
+
 // Use qsuba for smooth pixel colouring and qsubd for non-smooth pixel colouring
 #define qsubd(x, b)  ((x>b)?b:0)
 #define qsuba(x, b)  ((x>b)?x-b:0)
-#define NUM_LEDS 200
+#define NUM_LEDS 161
 #define LEDS_PIN D6
 #define LED_TYPE NSFastLED::NEOPIXEL
 #define UPDATES_PER_SECOND 120
@@ -17,9 +19,9 @@
 #define BOOTUP_ANIM_DURATION_MS 4000
 #define PATTERN_CHANGE_INTERVAL_MS 30000
 #define PALETTE_CHANGE_INTERVAL_MS 30000
-#define EFFECT_CHANGE_INTERVAL_MS 20000
+#define EFFECT_CHANGE_INTERVAL_MS 10000
 #define VJ_CROSSFADING_ENABLED 1
-#define VJ_CROSSFADE_DURATION_MS 10000
+#define VJ_CROSSFADE_DURATION_MS 4000
 #define VJ_NUM_DECKS 2
 // switch between deck a and b with this interval
 #define VJ_DECK_SWITCH_INTERVAL_MS 15000
@@ -86,26 +88,6 @@ void pattern_slow_pulse(Deck* s) {
   hsv2rgb_rainbow(hsv_led, rgb_led);
   for( int i = 0; i < NUM_LEDS; i++) {
     s->leds[i] = rgb_led;
-  }
-}
-
-/*vars for pattern_phase_shift_palette*/
-int wave1=0;
-void pattern_phase_shift_palette(Deck* s) {
-  // phase shift
-  wave1 += 8;
-  int phase2 = NSFastLED::beatsin88(7*256,-64,64);
-
-  for (int k=0; k<NUM_LEDS; k++) {
-    int phase1 = NSFastLED::sin8(3*k + wave1/128);
-    int colorIndex = NSFastLED::cubicwave8((k)+phase1)/2 + NSFastLED::cos8((k*3)+phase2)/2;
-
-    //int bri8 = NSFastLED::cubicwave8(t_now/10.0 + k*10.0); // nice pulsy one direction intensity modulator
-    // generate undulating intensity phases
-    int bri8 = NSFastLED::cubicwave8(t_now/10.0 + NSFastLED::cubicwave8(k*10.0));
-
-    //Serial.printlnf("%d %d", k, bri8);
-    s->leds[k] = NSFastLED::ColorFromPalette(s->currentPalette, colorIndex, bri8, currentBlending);
   }
 }
 
@@ -198,7 +180,6 @@ void pattern_palette_waves(Deck* s) {
 #define NUM_PATTERNS sizeof(patternBank) / sizeof(DrawFunction)
 const DrawFunction patternBank[] = {
   &pattern_palette_waves,
-  &pattern_phase_shift_palette,
   &pattern_plasma,
   &pattern_rainbow_waves,
 };
@@ -207,9 +188,8 @@ const DrawFunction patternBank[] = {
 const EffectFunction effectBank[] = {
   NULL,
   &effect_reverse,
-  NULL,
   &effect_mirror,
-  NULL,
+  &effect_reverse_mirror,
 };
 
 // change dw/p1/p2 on some period
@@ -301,8 +281,8 @@ void changeMode(const char *event, const char *data) {
   if (strcmp(data, "red") == 0 || strcmp(data, "movie") == 0){
     AUTO_PATTERN_CHANGE = false;
     AUTO_PATTERN_CHANGE = false;
-    usePalette(&DeckA, 6); // red_gp
-    usePalette(&DeckB, 6); // red_gp
+    usePalette(&DeckA, 0); // red_gp
+    usePalette(&DeckB, 0); // red_gp
     usePattern(&DeckA, 2); // phase shift palette
     usePattern(&DeckB, 2); // phase shift palette
     changeBrightness("brightness", "min");
@@ -478,12 +458,12 @@ void loop() {
 
   // fill in patterns on both decks! we will crossfade master output later
   // NOTE: only render to a deck if its "visible" through the crossfader
-  if ( !VJ_CROSSFADING_ENABLED || mainMixer.crossfadePosition < 1.0 ) {
+  //if ( !VJ_CROSSFADING_ENABLED || mainMixer.crossfadePosition < 1.0 ) {
     patternBank[DeckA.pattern](&DeckA);
-  }
-  if ( VJ_CROSSFADING_ENABLED && mainMixer.crossfadePosition > 0 ) {
+  //}
+  //if ( VJ_CROSSFADING_ENABLED && mainMixer.crossfadePosition > 0 ) {
     patternBank[DeckB.pattern](&DeckB);
-  }
+  //}
 
   // perform crossfading increment if we are mid pattern change
   if (VJ_CROSSFADING_ENABLED) {

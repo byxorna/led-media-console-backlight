@@ -23,11 +23,22 @@ void effect_reverse(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
 }
 
 void effect_mirror(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
-  NSFastLED::CRGB flex = NSFastLED::CRGB::Black;
   for(int i = 0; i < NUM_LEDS/2; ++i) {
     s->leds[i] = s->leds[NUM_LEDS-i-1];
   }
 }
+
+void effect_reverse_mirror(Output* s, uint8_t dw, uint8_t p1, uint8_t p2) {
+  NSFastLED::CRGB flex = NSFastLED::CRGB::Black;
+  for(int i = 0; i < NUM_LEDS/2; ++i) {
+    flex = s->leds[NUM_LEDS/2 - 1 - i];
+    s->leds[NUM_LEDS/2 - 1 - i] = s->leds[i];
+    s->leds[i] = flex;
+    // now mirror this over the mid axis
+    s->leds[NUM_LEDS/2-1 + (NUM_LEDS/2-1-i)] = s->leds[i];
+  }
+}
+
 
 
 #endif
