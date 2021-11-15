@@ -22,16 +22,11 @@ typedef struct Deck {
   unsigned long tFxEffectStart; // when the last effect was changed
 } Deck;
 
-/*
-typedef struct Output {
-  NSFastLED::CRGB* leds;
-} Output;
-*/
 
 typedef struct Mixer {
   float crossfadePosition;
   int crossfadeDirection;
-  uint8_t crossfadeInProgress;
+  bool crossfadeInProgress;
   unsigned long tLastCrossfade;
   uint8_t fxEffectIndex;    // which effect in effectBank is active (postfader)
   uint8_t fxDryWet;         // fx1 d/w

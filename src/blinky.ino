@@ -1,6 +1,5 @@
 /*
-* Project d18-scarf
-* Description: LEDs for DI8ORIENT scarf
+* Project: led-media-console-backlight
 * Author: Gabe Conradi
 * Date: idklol
 */
@@ -10,7 +9,7 @@
 // Use qsuba for smooth pixel colouring and qsubd for non-smooth pixel colouring
 #define qsubd(x, b)  ((x>b)?b:0)
 #define qsuba(x, b)  ((x>b)?x-b:0)
-#define NUM_LEDS 161
+#define NUM_LEDS 295
 #define LEDS_PIN D6
 #define LED_TYPE NSFastLED::NEOPIXEL
 #define UPDATES_PER_SECOND 120
@@ -56,8 +55,8 @@ typedef void (*DrawFunction)(Deck*);
 // how 2 decks mix together into an output
 typedef void (*MixerFunction)(Deck*, Deck*, Deck*);
 
-uint8_t BRIGHTNESS_VALUES[] = {40, 120, 255};
-#define BRIGHTNESS_COUNT sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)
+uint8_t BRIGHTNESS_VALUES[] = {0, 80, 120, 255};
+#define BRIGHTNESS_COUNT (sizeof(BRIGHTNESS_VALUES)/sizeof(uint8_t)-1)
 #define GLOBAL_BRIGHTNESS BRIGHTNESS_VALUES[BRIGHTNESS_INDEX]
 uint8_t BRIGHTNESS_INDEX = 1;
 bool AUTO_PATTERN_CHANGE = true;
@@ -284,9 +283,20 @@ void changeBrightness(const char *event, const char *data) {
   } else if (strcmp(data, "max") == 0) {
     BRIGHTNESS_INDEX = BRIGHTNESS_COUNT-1;
   } else if (strcmp(data, "min") == 0) {
+    BRIGHTNESS_INDEX = 1;
+  } else if (strcmp(data, "off") == 0) {
     BRIGHTNESS_INDEX = 0;
+  } else if (strcmp(data, "on") == 0) {
+    BRIGHTNESS_INDEX = 1;
   }
   Serial.printlnf("set brightness to %d/255", GLOBAL_BRIGHTNESS);
+}
+
+void changePower(const char *event, const char *data) {
+  if (strcmp(data, "on") == 0) {
+    changeBrightness("brightness", "off");
+  }
+
 }
 
 // handle particle event for "mode"
@@ -375,6 +385,7 @@ void setup() {
 
   Particle.subscribe("brightness", changeBrightness, MY_DEVICES);
   Particle.subscribe("mode", changeMode, MY_DEVICES);
+  Particle.subscribe("power", changePower, MY_DEVICES);
 
   randomPattern(&DeckA, &DeckB);
   randomPalette(&DeckA, &DeckB);
@@ -491,7 +502,7 @@ void loop() {
     if (t_now > mainMixer.tLastCrossfade + VJ_DECK_SWITCH_INTERVAL_MS && !mainMixer.crossfadeInProgress) {
       // start switching between decks
       Serial.printf("starting fading to %c\n", (mainMixer.crossfadePosition == 1.0) ? 'A' : 'B');
-      mainMixer.crossfadeInProgress = 1;
+      mainMixer.crossfadeInProgress = true;
       mainMixer.tLastCrossfade = t_now;
     }
     if (mainMixer.crossfadeInProgress) {
@@ -503,14 +514,13 @@ void loop() {
       if (mainMixer.crossfadePosition >= 1.0) {
         mainMixer.crossfadePosition = 1.0;
         mainMixer.crossfadeDirection = -1; // 1->0
-        mainMixer.crossfadeInProgress = 0;
+        mainMixer.crossfadeInProgress = false;
         Serial.printf("finished fading to B\n");
-      }
-      // we are cut over to deck B
-      if (mainMixer.crossfadePosition <= 0.0) {
+      } else if (mainMixer.crossfadePosition <= 0.0) {
+        // we are on deck A
         mainMixer.crossfadePosition = 0.0;
         mainMixer.crossfadeDirection = 1;  // 0->1
-        mainMixer.crossfadeInProgress = 0;
+        mainMixer.crossfadeInProgress = false;
         Serial.printf("finished fading to A\n");
       }
     }
@@ -548,8 +558,6 @@ void loop() {
   }
   //stepFxParams(&mainMixer);
 
-
   gLED->setBrightness(GLOBAL_BRIGHTNESS);
   gLED->show();
-  delay(1000.0 / UPDATES_PER_SECOND);
 }
