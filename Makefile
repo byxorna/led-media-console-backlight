@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := build
 FIRMWARE = firmware.bin
-TARGET = 0.6.3
+TARGET = latest
 deps:
 	@echo Installing deps
 	yarn global add particle-cli
