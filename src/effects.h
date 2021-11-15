@@ -13,8 +13,16 @@
 
 typedef void (*EffectFunction)(Deck*,uint8_t,uint8_t,uint8_t);
 
+void effect_dual_mirror(Deck* s, uint8_t dw, uint8_t p1, uint8_t p2) {
+  // TODO: do wavefolding?
+  //for(int i = 0; i < NUM_LEDS/2; ++i) {
+  //  s->leds[i] = s->leds[NUM_LEDS-i-1];
+  //}
+}
+
 void effect_reverse(Deck* s, uint8_t dw, uint8_t p1, uint8_t p2) {
   NSFastLED::CRGB flex = NSFastLED::CRGB::Black;
+  // TODO this is buggy
   for(int i = 0; i < NUM_LEDS/2; ++i) {
     flex = s->leds[i];
     s->leds[i] = s->leds[NUM_LEDS-i-1];

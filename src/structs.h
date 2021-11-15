@@ -10,7 +10,7 @@
 
 typedef struct Deck {
   uint8_t label;
-  float crossfadePositionActive;
+  //float crossfadePositionActive;
   uint8_t pattern;
   uint8_t palette;
   uint8_t animationIndex;
@@ -25,7 +25,7 @@ typedef struct Deck {
 
 typedef struct Mixer {
   float crossfadePosition;
-  int crossfadeDirection;
+  //int crossfadeDirection;
   bool crossfadeInProgress;
   unsigned long tLastCrossfade;
   uint8_t fxEffectIndex;    // which effect in effectBank is active (postfader)

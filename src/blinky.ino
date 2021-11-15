@@ -9,16 +9,16 @@
 // Use qsuba for smooth pixel colouring and qsubd for non-smooth pixel colouring
 #define qsubd(x, b)  ((x>b)?b:0)
 #define qsuba(x, b)  ((x>b)?x-b:0)
+#define WIDTH 295
+#define HEIGHT 1
 #define NUM_LEDS 295
 #define LEDS_PIN D6
 #define LED_TYPE NSFastLED::NEOPIXEL
-#define MAX_BRIGHTNESS 255
-#define MAX_SATURATION 255
 #define BOOTUP_ANIM_DURATION_MS 4000
 #define PATTERN_CHANGE_INTERVAL_MS 30000
 #define PALETTE_CHANGE_INTERVAL_MS 30000
 #define EFFECT_CHANGE_INTERVAL_MS 10000
-#define VJ_CROSSFADING_ENABLED 1
+#define VJ_CROSSFADING_ENABLED true
 #define VJ_CROSSFADE_DURATION_MS 4000
 #define VJ_NUM_DECKS 2
 // switch between deck a and b with this interval
@@ -100,7 +100,7 @@ void  pattern_plasma(Deck* s) {
     int thisBright = NSFastLED::cubicwave8(t_now/10.0 + k*10.0); // nice pulsy one direction intensity modulator
     //int thisBright = qsuba(colorIndex, NSFastLED::beatsin8(7,0,96));
 
-    s->leds[k] = ColorFromPalette(s->currentPalette, colorIndex, thisBright, currentBlending);
+    s->leds[k] = NSFastLED::ColorFromPalette(s->currentPalette, colorIndex, thisBright, currentBlending);
   }
 }
 
@@ -120,6 +120,88 @@ void pattern_clear(Deck* s) {
     s->leds[i] = NSFastLED::CRGB::Black;
   }
 }
+
+NSFastLED::CRGB ColorFromPaletteExtended(const NSFastLED::CRGBPalette16& pal, uint16_t index, uint8_t brightness) {
+  // Extract the four most significant bits of the index as a palette index.
+  uint8_t index_4bit = (index >> 12);
+  // Calculate the 8-bit offset from the palette index.
+  uint8_t offset = (uint8_t)(index >> 4);
+  // Get the palette entry from the 4-bit index
+  const NSFastLED::CRGB* entry = &(pal[0]) + index_4bit;
+  uint8_t red1   = entry->red;
+  uint8_t green1 = entry->green;
+  uint8_t blue1  = entry->blue;
+
+  uint8_t blend = offset && (currentBlending != NSFastLED::NOBLEND);
+  if (blend) {
+    if (index_4bit == 15) {
+      entry = &(pal[0]);
+    } else {
+      entry++;
+    }
+
+    // Calculate the scaling factor and scaled values for the lower palette value.
+    uint8_t f1 = 255 - offset;
+    red1   = NSFastLED::scale8_LEAVING_R1_DIRTY(red1,   f1);
+    green1 = NSFastLED::scale8_LEAVING_R1_DIRTY(green1, f1);
+    blue1  = NSFastLED::scale8_LEAVING_R1_DIRTY(blue1,  f1);
+
+    // Calculate the scaled values for the neighbouring palette value.
+    uint8_t red2   = entry->red;
+    uint8_t green2 = entry->green;
+    uint8_t blue2  = entry->blue;
+    red2   = NSFastLED::scale8_LEAVING_R1_DIRTY(red2,   offset);
+    green2 = NSFastLED::scale8_LEAVING_R1_DIRTY(green2, offset);
+    blue2  = NSFastLED::scale8_LEAVING_R1_DIRTY(blue2,  offset);
+    NSFastLED::cleanup_R1();
+
+    // These sums can't overflow, so no qadd8 needed.
+    red1   += red2;
+    green1 += green2;
+    blue1  += blue2;
+  }
+  if (brightness != 255) {
+    // nscale8x3_video(red1, green1, blue1, brightness);
+    NSFastLED::nscale8x3(red1, green1, blue1, brightness);
+  }
+  return NSFastLED::CRGB(red1, green1, blue1);
+}
+
+
+
+uint16_t _XY(uint8_t x, uint8_t y) {
+  if (x >= WIDTH) return NUM_LEDS;
+  if (y >= HEIGHT) return NUM_LEDS;
+  return y * WIDTH + x;
+}
+
+// note: found in https://wokwi.com/arduino/projects/285170662915441160
+// from: https://github.com/FastLED/FastLED/pull/102
+void pattern_smooth_palette_walk(Deck* s) {
+  uint32_t ms = millis();
+  uint32_t timing_scale = 32; // multiple to slow down the undulations across axes
+
+  // just like the XYmatrix example but with added distortion
+  uint32_t yHueDelta = (int32_t)NSFastLED::sin16(ms * 11) * 1;
+  uint32_t xHueDelta = (int32_t)NSFastLED::cos16(ms * 11) * 1;
+  uint32_t startHue = ms << 8;
+  uint32_t lineStartHue = startHue - (HEIGHT + 1) / 2 * yHueDelta;
+  uint32_t yd2 = (int32_t)NSFastLED::sin16(ms * 3) / (8*timing_scale);
+  uint32_t xd2 = (int32_t)NSFastLED::sin16(ms * 7) / (8*timing_scale);
+  for (byte y = 0; y < HEIGHT; y++) {
+    uint32_t pixelHue = lineStartHue - (WIDTH + 1) / 2 * xHueDelta;
+    uint32_t xhd = xHueDelta;
+    for (byte x = 0; x < WIDTH/2; x++) {
+      s->leds[_XY(x, y)] = ColorFromPaletteExtended(s->currentPalette, pixelHue >> 7, 255);
+      s->leds[_XY((WIDTH-1)-x, y)] = NSFastLED::ColorFromPalette(s->currentPalette, pixelHue >> 15, 255);
+      pixelHue += xhd;
+      xhd += xd2;
+    }
+    lineStartHue += yHueDelta;
+    yHueDelta += yd2;
+  }
+}
+
 
 // NOTE: lifted and tweaked from https://learn.adafruit.com/rainbow-chakra-led-hoodie/the-code
 // This function draws color waves with an ever-changing,
@@ -177,17 +259,25 @@ void pattern_palette_waves(Deck* s) {
 /** update this with patterns you want to be cycled through **/
 #define NUM_PATTERNS sizeof(patternBank) / sizeof(DrawFunction)
 const DrawFunction patternBank[] = {
-  &pattern_palette_waves,
-  &pattern_plasma,
-  &pattern_rainbow_waves,
+  // not yet vetted as visually sound
+  //&pattern_palette_waves,
+  //&pattern_plasma,
+  &pattern_smooth_palette_walk,
+  &pattern_smooth_palette_walk,
+  &pattern_smooth_palette_walk,
+
+  // vetted as visually sound
+  //&pattern_rainbow_waves,
 };
 
 #define NUM_EFFECTS sizeof(effectBank) / sizeof(EffectFunction)
 const EffectFunction effectBank[] = {
   NULL,
-  &effect_reverse,
-  &effect_mirror,
-  &effect_reverse_mirror,
+  NULL,
+  NULL,
+  //&effect_reverse,
+  //&effect_mirror,
+  //&effect_reverse_mirror,
 };
 
 // change dw/p1/p2 on some period
@@ -322,12 +412,12 @@ void changeMode(const char *event, const char *data) {
 void setup() {
   t_now = millis();
   t_boot = t_now;
+  randomSeed(analogRead(0));
   Serial.begin(9600);
   Serial.println("resetting");
 
   MasterOutput = {
     1,
-    0.0,
     0,
     0,
     0,
@@ -341,7 +431,6 @@ void setup() {
 
   DeckA = {
     1,
-    0.0,
     0,
     0,
     0,
@@ -355,7 +444,6 @@ void setup() {
 
   DeckB = {
     2,
-    1.0,
     0,
     0,
     0,
@@ -368,10 +456,9 @@ void setup() {
   };
 
   mainMixer = {
-    1.0,  // position; 0.0 is deckA, 1.0 is deckB
-    -1, // start fading direction going B -> A
-    0, // crossfade in progress
-    0, // last crossfade
+    0.0,  // crossfader. 0.0 is deckA, 1.0 is deckB
+    false, // crossfade in progress
+    0, // time of last crossfade start
     0,  // fx effect index in effectBank
     0,  // fx d/w
     0,  // fx p1
@@ -473,11 +560,23 @@ void loop() {
 
   // increment palette every PALETTE_CHANGE_INTERVAL_MS, but not when crossfading!
   if (AUTO_CHANGE_PALETTE && !mainMixer.crossfadeInProgress) {
+    // allow palette change if a deck is fully occluded by the crossfader from main output
+    if ((mainMixer.crossfadePosition == 1.0) && (DeckA.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
+      randomPalette(&DeckA, &DeckB);
+      Serial.printlnf("deckA.palette=%d", DeckA.palette);
+    }
+    if ((mainMixer.crossfadePosition == 0.0) && (DeckB.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
+      randomPalette(&DeckB, &DeckA);
+      Serial.printlnf("deckB.palette=%d", DeckB.palette);
+    }
+    
     for (int x = 0; x < VJ_NUM_DECKS ; x++){
       int xOther = (x == 0) ? 1 : 0;
       Deck* deck = DeckAll[x];
       Deck* otherdeck = DeckAll[xOther];
-      if ((deck->crossfadePositionActive != mainMixer.crossfadePosition) &&
+
+      // allow palette change if a deck is fully occluded by the crossfader from main output
+      if ((mainMixer.crossfadePosition == 0.0) &&
           (deck->tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
         randomPalette(deck, otherdeck);
         Serial.printlnf("deck%d.palette=%d", deck->label, deck->palette);
@@ -504,13 +603,11 @@ void loop() {
       // we are cut over to deck B, break this loop
       if (mainMixer.crossfadePosition >= 1.0) {
         mainMixer.crossfadePosition = 1.0;
-        mainMixer.crossfadeDirection = -1; // 1->0
         mainMixer.crossfadeInProgress = false;
         Serial.printf("finished fading to B\n");
       } else if (mainMixer.crossfadePosition <= 0.0) {
         // we are on deck A
         mainMixer.crossfadePosition = 0.0;
-        mainMixer.crossfadeDirection = 1;  // 0->1
         mainMixer.crossfadeInProgress = false;
         Serial.printf("finished fading to A\n");
       }
