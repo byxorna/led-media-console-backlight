@@ -11,7 +11,7 @@
 #define qsuba(x, b)  ((x>b)?x-b:0)
 #define WIDTH 295
 #define HEIGHT 1
-#define NUM_LEDS 295
+#define NUM_LEDS ((WIDTH)*(HEIGHT))
 #define LEDS_PIN D6
 #define LED_TYPE NSFastLED::NEOPIXEL
 #define BOOTUP_ANIM_DURATION_MS 4000
@@ -325,9 +325,9 @@ void usePattern(Deck* deck, uint8_t patternIndex){
   deck->tPatternStart = t_now;
 }
 
-void randomPalette(Deck* deck, Deck* otherDeck) {
+void randomPalette(Deck* deck) {
   uint8_t old = deck->palette;
-  while (deck->palette == old || deck->palette == otherDeck->palette) {
+  while (deck->palette == old) {
     deck->palette = NSFastLED::random8(0, PALETTES_COUNT);
   }
   deck->currentPalette = palettes[deck->palette];
@@ -474,9 +474,9 @@ void setup() {
   Particle.subscribe("power", changePower, MY_DEVICES);
 
   randomPattern(&DeckA, &DeckB);
-  randomPalette(&DeckA, &DeckB);
+  randomPalette(&DeckA);
   randomPattern(&DeckB, &DeckA);
-  randomPalette(&DeckB, &DeckA);
+  randomPalette(&DeckB);
   randomEffect(&DeckA);
   randomEffect(&DeckB);
 
@@ -543,15 +543,15 @@ void loop() {
 
 
   // increment pattern every PATTERN_CHANGE_INTERVAL_MS, but not when a deck is active!
-  if (AUTO_PATTERN_CHANGE) {
-    if (t_now > DeckA.tPatternStart+PATTERN_CHANGE_INTERVAL_MS && !mainMixer.crossfadeInProgress) {
-      if (mainMixer.crossfadePosition == 1.0) {
+  if (AUTO_PATTERN_CHANGE && !mainMixer.crossfadeInProgress) {
+    if (t_now > DeckA.tPatternStart+PATTERN_CHANGE_INTERVAL_MS ) {
+      if (mainMixer.crossfadePosition >= 1.0) {
         randomPattern(&DeckA, &DeckB);
         Serial.printlnf("deckA.pattern=%d", DeckA.pattern);
       }
     }
-    if (t_now > DeckB.tPatternStart+PATTERN_CHANGE_INTERVAL_MS && !mainMixer.crossfadeInProgress) {
-      if (mainMixer.crossfadePosition == 0.0) {
+    if (t_now > DeckB.tPatternStart+PATTERN_CHANGE_INTERVAL_MS ) {
+      if (mainMixer.crossfadePosition <= 0.0) {
         randomPattern(&DeckB, &DeckA);
         Serial.printlnf("deckB.pattern=%d", DeckB.pattern);
       }
@@ -561,27 +561,15 @@ void loop() {
   // increment palette every PALETTE_CHANGE_INTERVAL_MS, but not when crossfading!
   if (AUTO_CHANGE_PALETTE && !mainMixer.crossfadeInProgress) {
     // allow palette change if a deck is fully occluded by the crossfader from main output
-    if ((mainMixer.crossfadePosition == 1.0) && (DeckA.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
-      randomPalette(&DeckA, &DeckB);
+    if ((mainMixer.crossfadePosition >= 1.0) && t_now >= (DeckA.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
+      randomPalette(&DeckA);
       Serial.printlnf("deckA.palette=%d", DeckA.palette);
     }
-    if ((mainMixer.crossfadePosition == 0.0) && (DeckB.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
-      randomPalette(&DeckB, &DeckA);
+    if ((mainMixer.crossfadePosition <= 0.0) && t_now >= (DeckB.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
+      randomPalette(&DeckB);
       Serial.printlnf("deckB.palette=%d", DeckB.palette);
     }
     
-    for (int x = 0; x < VJ_NUM_DECKS ; x++){
-      int xOther = (x == 0) ? 1 : 0;
-      Deck* deck = DeckAll[x];
-      Deck* otherdeck = DeckAll[xOther];
-
-      // allow palette change if a deck is fully occluded by the crossfader from main output
-      if ((mainMixer.crossfadePosition == 0.0) &&
-          (deck->tPaletteStart + PALETTE_CHANGE_INTERVAL_MS < t_now)) {
-        randomPalette(deck, otherdeck);
-        Serial.printlnf("deck%d.palette=%d", deck->label, deck->palette);
-      }
-    }
   }
 
   // render the patterns for both decks
@@ -654,4 +642,5 @@ void loop() {
     //stepFxParams(&mainMixer);
   }
 
+  gLED->delay(8); // 8ms is 120fps
 }
