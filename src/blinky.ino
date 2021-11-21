@@ -11,20 +11,24 @@
 #define qsuba(x, b)  ((x>b)?x-b:0)
 #define WIDTH 295
 #define HEIGHT 1
+
+#define FEATURE_ENABLE_EFFECTS true
+#define FEATURE_AUTO_CHANGE_PALETTE true
+#define FEATURE_ENABLE_PARTICLE_CLOUD false
+
 #define NUM_LEDS ((WIDTH)*(HEIGHT))
 #define LEDS_PIN D6
 #define LED_TYPE NSFastLED::NEOPIXEL
 #define BOOTUP_ANIM_DURATION_MS 4000
 #define PATTERN_CHANGE_INTERVAL_MS 30000
-#define PALETTE_CHANGE_INTERVAL_MS 30000
+#define PALETTE_CHANGE_INTERVAL_MS 15000
 #define EFFECT_CHANGE_INTERVAL_MS 10000
 #define VJ_CROSSFADING_ENABLED true
-#define VJ_CROSSFADE_DURATION_MS 4000
+#define VJ_CROSSFADE_DURATION_MS 3000
 #define VJ_NUM_DECKS 2
 // switch between deck a and b with this interval
-#define VJ_DECK_SWITCH_INTERVAL_MS 15000
+#define VJ_DECK_SWITCH_INTERVAL_MS 7000
 #define SETUP_BUTTON_HOLD_DURATION_MS 800
-bool AUTO_CHANGE_PALETTE = true;
 
 #ifndef _PARTICLE_H_
 #include "Particle.h"
@@ -259,15 +263,21 @@ void pattern_palette_waves(Deck* s) {
 /** update this with patterns you want to be cycled through **/
 #define NUM_PATTERNS sizeof(patternBank) / sizeof(DrawFunction)
 const DrawFunction patternBank[] = {
-  // not yet vetted as visually sound
-  //&pattern_palette_waves,
-  //&pattern_plasma,
+  // include multiple copies if you want to bias the random selection
+  &pattern_rainbow_waves,
+  &pattern_plasma,
+  &pattern_plasma,
   &pattern_smooth_palette_walk,
   &pattern_smooth_palette_walk,
   &pattern_smooth_palette_walk,
+  &pattern_palette_waves,
+  &pattern_palette_waves,
 
   // vetted as visually sound
   //&pattern_rainbow_waves,
+  //&pattern_plasma,
+  //&pattern_smooth_palette_walk,
+  //&pattern_palette_waves,
 };
 
 #define NUM_EFFECTS sizeof(effectBank) / sizeof(EffectFunction)
@@ -275,9 +285,11 @@ const EffectFunction effectBank[] = {
   NULL,
   NULL,
   NULL,
+#ifdef FEATURE_ENABLE_EFFECTS
   //&effect_reverse,
   //&effect_mirror,
   //&effect_reverse_mirror,
+#endif
 };
 
 // change dw/p1/p2 on some period
@@ -347,7 +359,11 @@ void mixer_crossfade_blend(Mixer* mixer, Deck* a, Deck* b, Deck* out) {
   for (int i = 0; i < NUM_LEDS; ++i) {
     if (VJ_CROSSFADING_ENABLED) {
       // NSFastLED::fract8(255*crossfadePosition));
-      out->leds[i] = a->leds[i].lerp8(b->leds[i], NSFastLED::fract8(255*mixer->crossfadePosition));
+      if (mixer->activeDeck == a) {
+        out->leds[i] = a->leds[i].lerp8(b->leds[i], NSFastLED::fract8(255*mixer->crossfadePosition));
+      } else {
+        out->leds[i] = b->leds[i].lerp8(a->leds[i], NSFastLED::fract8(255*mixer->crossfadePosition));
+      }
     } else {
       out->leds[i] = a->leds[i];
     }
@@ -392,7 +408,6 @@ void changePower(const char *event, const char *data) {
 void changeMode(const char *event, const char *data) {
   if (strcmp(data, "red") == 0 || strcmp(data, "movie") == 0){
     AUTO_PATTERN_CHANGE = false;
-    AUTO_PATTERN_CHANGE = false;
     usePalette(&DeckA, 0); // red_gp
     usePalette(&DeckB, 0); // red_gp
     usePattern(&DeckA, 2); // phase shift palette
@@ -401,7 +416,6 @@ void changeMode(const char *event, const char *data) {
   } else {
     // go back to auto mode, rave time!
     AUTO_PATTERN_CHANGE = true;
-    AUTO_CHANGE_PALETTE = true;
   }
 }
 
@@ -457,6 +471,7 @@ void setup() {
 
   mainMixer = {
     0.0,  // crossfader. 0.0 is deckA, 1.0 is deckB
+    &DeckA, // active deck (focused)
     false, // crossfade in progress
     0, // time of last crossfade start
     0,  // fx effect index in effectBank
@@ -469,9 +484,11 @@ void setup() {
     &MasterOutput,
   };
 
+#ifdef FEATURE_ENABLE_PARTICLE_CLOUD
   Particle.subscribe("brightness", changeBrightness, MY_DEVICES);
   Particle.subscribe("mode", changeMode, MY_DEVICES);
   Particle.subscribe("power", changePower, MY_DEVICES);
+#endif
 
   randomPattern(&DeckA, &DeckB);
   randomPalette(&DeckA);
@@ -545,13 +562,13 @@ void loop() {
   // increment pattern every PATTERN_CHANGE_INTERVAL_MS, but not when a deck is active!
   if (AUTO_PATTERN_CHANGE && !mainMixer.crossfadeInProgress) {
     if (t_now > DeckA.tPatternStart+PATTERN_CHANGE_INTERVAL_MS ) {
-      if (mainMixer.crossfadePosition >= 1.0) {
+      if (mainMixer.activeDeck != &DeckA) {
         randomPattern(&DeckA, &DeckB);
         Serial.printlnf("deckA.pattern=%d", DeckA.pattern);
       }
     }
     if (t_now > DeckB.tPatternStart+PATTERN_CHANGE_INTERVAL_MS ) {
-      if (mainMixer.crossfadePosition <= 0.0) {
+      if (mainMixer.activeDeck != &DeckB) {
         randomPattern(&DeckB, &DeckA);
         Serial.printlnf("deckB.pattern=%d", DeckB.pattern);
       }
@@ -559,13 +576,13 @@ void loop() {
   }
 
   // increment palette every PALETTE_CHANGE_INTERVAL_MS, but not when crossfading!
-  if (AUTO_CHANGE_PALETTE && !mainMixer.crossfadeInProgress) {
+  if (FEATURE_AUTO_CHANGE_PALETTE && !mainMixer.crossfadeInProgress) {
     // allow palette change if a deck is fully occluded by the crossfader from main output
-    if ((mainMixer.crossfadePosition >= 1.0) && t_now >= (DeckA.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
+    if ((mainMixer.activeDeck != &DeckA) && t_now >= (DeckA.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
       randomPalette(&DeckA);
       Serial.printlnf("deckA.palette=%d", DeckA.palette);
     }
-    if ((mainMixer.crossfadePosition <= 0.0) && t_now >= (DeckB.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
+    if ((mainMixer.activeDeck != &DeckB) && t_now >= (DeckB.tPaletteStart + PALETTE_CHANGE_INTERVAL_MS)) {
       randomPalette(&DeckB);
       Serial.printlnf("deckB.palette=%d", DeckB.palette);
     }
@@ -576,28 +593,33 @@ void loop() {
   patternBank[DeckA.pattern](&DeckA);
   patternBank[DeckB.pattern](&DeckB);
 
+  // step crossfader if necessary
   // perform crossfading increment if we are mid pattern change
   if (VJ_CROSSFADING_ENABLED) {
     if (t_now > mainMixer.tLastCrossfade + VJ_DECK_SWITCH_INTERVAL_MS && !mainMixer.crossfadeInProgress) {
       // start switching between decks
-      Serial.printf("starting fading to %c\n", (mainMixer.crossfadePosition == 1.0) ? 'A' : 'B');
+      Deck* oldTarget = mainMixer.activeDeck;
       mainMixer.crossfadeInProgress = true;
       mainMixer.tLastCrossfade = t_now;
+      mainMixer.crossfadePosition = 1.0;
+      if (mainMixer.activeDeck == &DeckA) {
+        mainMixer.activeDeck = &DeckB;
+      } else {
+        mainMixer.activeDeck = &DeckA;
+      }
+      Serial.printf("started fading to %c\n", (oldTarget == &DeckB) ? 'A' : 'B');
     }
     if (mainMixer.crossfadeInProgress) {
-      mainMixer.crossfadePosition = (t_now-mainMixer.tLastCrossfade)/VJ_CROSSFADE_DURATION_MS;
+      float elapsed_pct = (t_now-mainMixer.tLastCrossfade)/(1.0*VJ_CROSSFADE_DURATION_MS);
+      mainMixer.crossfadePosition = 1.0 - elapsed_pct;
+      //Serial.printf("%% %.02f %.02f\n", elapsed_pct, mainMixer.crossfadePosition);
 
       // is it time to change decks?
       // we are cut over to deck B, break this loop
-      if (mainMixer.crossfadePosition >= 1.0) {
-        mainMixer.crossfadePosition = 1.0;
-        mainMixer.crossfadeInProgress = false;
-        Serial.printf("finished fading to B\n");
-      } else if (mainMixer.crossfadePosition <= 0.0) {
-        // we are on deck A
+      if (mainMixer.crossfadePosition <= 0.0) {
         mainMixer.crossfadePosition = 0.0;
         mainMixer.crossfadeInProgress = false;
-        Serial.printf("finished fading to A\n");
+        Serial.printf("finished crossfading\n");
       }
     }
   }
@@ -627,13 +649,13 @@ void loop() {
     // pick new effects if we should
     if (!mainMixer.crossfadeInProgress) {
       if (DeckA.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
-        if (mainMixer.crossfadePosition == 1.0) {
+        if (mainMixer.activeDeck != &DeckA) {
           randomEffect(&DeckA);
           Serial.printlnf("deckA.effect=%d (%p)", DeckA.fxEffectIndex, effectBank[DeckA.fxEffectIndex]);
         }
       }
       if (DeckB.tFxEffectStart + EFFECT_CHANGE_INTERVAL_MS < t_now) {
-        if (mainMixer.crossfadePosition == 0.0) {
+        if (mainMixer.activeDeck != &DeckB) {
           randomEffect(&DeckB);
           Serial.printlnf("deckB.effect=%d (%p)", DeckB.fxEffectIndex, effectBank[DeckB.fxEffectIndex]);
         }
@@ -642,5 +664,5 @@ void loop() {
     //stepFxParams(&mainMixer);
   }
 
-  gLED->delay(8); // 8ms is 120fps
+  gLED->delay(1); // 8ms is 120fps
 }

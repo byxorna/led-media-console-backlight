@@ -25,7 +25,7 @@ typedef struct Deck {
 
 typedef struct Mixer {
   float crossfadePosition;
-  //int crossfadeDirection;
+  Deck* activeDeck; // what deck is the focus of the mix, or currently primary
   bool crossfadeInProgress;
   unsigned long tLastCrossfade;
   uint8_t fxEffectIndex;    // which effect in effectBank is active (postfader)

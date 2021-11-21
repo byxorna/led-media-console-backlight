@@ -113,8 +113,8 @@ extern const NSFastLED::TProgmemRGBGradientPalette_byte red_g0_4_gp [] {
 
 // for effects that are palette based
 NSFastLED::CRGBPalette16 palettes[] = {
-  hg_gp,
-  red_g0_4_gp,
+  //hg_gp,
+  //red_g0_4_gp, /too simple
   bhw1_purplered_gp,
   alarm_p1_0_3_gp,
   rainbow_gp,
